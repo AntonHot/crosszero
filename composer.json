@@ -1,0 +1,13 @@
+{   
+    "name": "antonhot/exchangeratesapi",
+    "description": "Api for getting currency rates",
+    "require": {
+        "slim/slim": "2.*"
+    },
+    "autoload": {
+        "psr-4": {
+            "Libs\\": "app/libs",
+            "Mvc\\": "app/mvc"
+        }
+    }
+}

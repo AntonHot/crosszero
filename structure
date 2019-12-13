@@ -1,0 +1,17 @@
+
+app/
+    api/
+    scripts/
+    services/
+    mvc/
+        views/
+        models/
+        controllers/
+    bootstrap.php
+    config.php
+public/
+    index.php
+    composer.json
+    .gitignore (/.vscode, config/php, vendor)
+    .htaccess
+vendor/
