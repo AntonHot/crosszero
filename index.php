@@ -1,10 +1,3 @@
-<?php
-if (empty($_COOKIE['PHPSESSID'])) {
-    session_start();
-} else {
-    echo $_COOKIE['PHPSESSID'];
-}
-?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -15,9 +8,12 @@ if (empty($_COOKIE['PHPSESSID'])) {
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <form action="handler.php">
+    <form id="chat" action="handler.php">
         <div class="chat-result" id="chat-result"></div>
-        <!-- <button type="button" class="btn btn-primary btn-start">Начать игру</button> -->
+        <input type="text" name="chat-user" id="chat-user" placeholder="Name">
+        <input type="text" name="chat-message" id="chat-message" placeholder="Message">
+        <input type="submit" value="Send">
+        <!-- <button type="button" class="btn btn-primary btn-start" onClick="function() {socket.send('123');}">Начать игру</button> -->
     </form>
 
     <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
