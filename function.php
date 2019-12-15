@@ -21,15 +21,6 @@ function sendHeaders($headersText, $newSocket, $host, $port) {
     socket_write($newSocket, $strHeaders, strlen($strHeaders));
 }
 
-function newConnectionACK($ipAddress) {
-    $message = 'New client ' . $ipAddress . ' connected';
-    $messageArray = [
-        'message' => $message,
-        'type' => $ipAddress
-    ];
-    return seal(json_encode($messageArray));
-}
-
 function seal($socketData) {
     $b1 = 0x81;
     $length = strlen($socketData);
@@ -72,11 +63,11 @@ function send($message, $clientSockets) {
     return true;
 }
 
-function createChatMessage($username, $messageStr) {
-    $message = $username . "<div>" . $messageStr . "</div>";
-    $messageArray = [
-        'type' => 'chat-box',
-        'message' => $message
+function createChatMessage($type, $username, $textMessage) {
+    $message = [
+        'type' => $type,
+        'user' => $username,
+        'message' => $textMessage
     ];
-    return seal(json_encode($messageArray));
+    return seal(json_encode($message));
 }

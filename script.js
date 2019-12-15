@@ -4,34 +4,48 @@ $(document).ready(function() {
     let socket = new WebSocket("ws://84.201.185.53:889");
     console.log(socket);
     socket.onopen = function() {
-        message('Соединение установлено');
+        message('Robot', 'Соединение установлено');
     }
 
     socket.onclose = function() {
-        message('Соединение закрыто');
+        message('Robot', 'Соединение закрыто');
     }
 
     socket.onerror = function(error) {
-        message('Ошибка');
+        message('Robot', 'Ошибка');
     }
 
     socket.onmessage = function(event) {
         let data = JSON.parse(event.data);
-        message(data.type + ': ' + data.message);
+        message(data.user, data.message);
     }
     
-    $("#chat").on('submit', function() {
+    $("#messenger").on('submit', function() {
         event.preventDefault();
         let message = {
-            chat_message: $("#chat-message").val(),
-            chat_user: $("#chat-user").val()
+            user: $("#chat-user").val(),
+            text: $("#chat-message").val()
         }
-        $("#chat-user").attr('type', 'hidden');
-        socket.send(JSON.stringify(message));
-        return false;
+        if (message.text !== '') {
+            $("#chat-user").attr('type', 'hidden');
+            socket.send(JSON.stringify(message));
+            $("#chat-message").val('');
+        }
     })
 })
 
-function message(text) {
-    $('#chat-result').append('<div>' + text + '</div>');
+function message(author, text) {
+    let classes = 'message';
+    if (author === 'Robot') {
+        classes += ' robot';
+    }
+    if (author !== null || text !== null) {
+        $('#chat').append(
+            '<div class="' + classes + '"><div class="message_username">' +
+            author +
+            '</div><div class="message_text">' +
+            text +
+            '</div></div>'
+        );
+    }
 }

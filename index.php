@@ -8,13 +8,14 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <form id="chat" action="handler.php">
-        <div class="chat-result" id="chat-result"></div>
-        <input type="text" name="chat-user" id="chat-user" placeholder="Name">
-        <input type="text" name="chat-message" id="chat-message" placeholder="Message">
-        <input type="submit" value="Send">
-        <!-- <button type="button" class="btn btn-primary btn-start" onClick="function() {socket.send('123');}">Начать игру</button> -->
-    </form>
+    <div class="container">
+        <div class="chat" id="chat"></div>
+        <form class="messenger" id="messenger">
+            <input class="form-control" type="text" name="chat-user" id="chat-user" placeholder="Name">
+            <input class="form-control" type="text" name="chat-message" id="chat-message" placeholder="Message">
+            <input class="btn btn-primary" type="submit" value="Send">
+        </form>
+    </div>
 
     <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>

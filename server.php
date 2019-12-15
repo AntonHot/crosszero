@@ -1,17 +1,16 @@
 <?php
 
 // Запуск сервера: sudo php -f /var/www/html/server.php &
+// Запуск сервера: sudo php /var/www/html/server.php
 
 require_once "function.php";
+require_once "settings.php";
 
 set_time_limit(0);
 error_reporting(-1);
 
-define('ADDR', '84.201.185.53');
-define('PORT', 889);
-
 if (!extension_loaded('sockets')) {
-    die("Extension 'WebSockets' not leaded" . PHP_EOL);
+    die("Extension 'WebSockets' not loaded" . PHP_EOL);
 }
 
 // Create socket
@@ -32,22 +31,23 @@ while(true) {
         $header = socket_read($newWebSocket, 1024);
         sendHeaders($header, $newWebSocket, ADDR, PORT);
         $webSockets[] = $newWebSocket;
-        socket_getpeername($webSockets[0], $ipAddress);
-        $connectionACK = newConnectionACK($ipAddress);
+        socket_getpeername($newWebSocket, $ipAddress);
+        $connectionACK = createChatMessage(null, 'Robot', 'Вошел новый юзер');
         send($connectionACK, $webSockets);
     }
     foreach ($webSockets as $webSocket) {
-        echo $webSocket . PHP_EOL;
-        socket_recv($webSocket, $socketData, 2048, 0);
+        $socketData = '';
+        while (socket_recv($webSocket, $partData, 1024, 0)) {
+            $socketData .= $partData;
+        }
         if ($socketData) {
             $socketMessage = unseal($socketData);
             echo $socketMessage . PHP_EOL;
             $messageObj = json_decode($socketMessage);
-            $chatMessage = createChatMessage($messageObj->chat_user, $messageObj->chat_message);
+            $chatMessage = createChatMessage(null, $messageObj->user, $messageObj->text);
             send($chatMessage, $webSockets);
         }
     }
-    echo PHP_EOL;
     sleep(1);
 }
 
