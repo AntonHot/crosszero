@@ -1,0 +1,13 @@
+{   
+    "name": "antonhot/crosszero",
+    "description": "Game",
+    "require": {
+        "slim/slim": "2.*"
+    },
+    "autoload": {
+        "psr-4": {
+            "Service\\": "app/service",
+            "Mvc\\": "app/mvc"
+        }
+    }
+}

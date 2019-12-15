@@ -44,11 +44,11 @@ while(true) {
             $socketMessage = unseal($socketData);
             echo $socketMessage . PHP_EOL;
             $messageObj = json_decode($socketMessage);
-            $chatMessage = createChatMessage(null, $messageObj->user, $messageObj->text);
+            $chatMessage = createChatMessage(null, $messageObj->username, $messageObj->text);
             send($chatMessage, $webSockets);
         }
     }
-    sleep(1);
+    usleep(100000);
 }
 
 socket_close($socket);

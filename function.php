@@ -1,6 +1,5 @@
 <?php
 
-
 function sendHeaders($headersText, $newSocket, $host, $port) {
     $headers = [];
     $tmpLine = preg_split("/\r\n/", $headersText);

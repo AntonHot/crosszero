@@ -12,7 +12,7 @@ $(document).ready(function() {
     }
 
     socket.onerror = function(error) {
-        message('Robot', 'Ошибка');
+        message('Robot', 'Ошибка подключения');
     }
 
     socket.onmessage = function(event) {
