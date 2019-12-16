@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Chat</title>
+    <title>CrossZero</title>
     <meta charset="UTF-8">
+    <link rel="shortcut icon" href="../favicon.ico" type="image/png">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
     <link rel="stylesheet" href="../style.css?3">
@@ -10,11 +11,13 @@
 <body>
     <div class="container">
         <div class="chat" id="chat">
-            
+            <div class="chat_messages" id="chat_messages"></div>
+            <div class="chat_members" id="chat_members"></div>
         </div>
         <form class="messenger" id="messenger">
-            <input class="form-control" type="text" name="chat-message" id="chat-message" placeholder="Message" autocomplete="off">
-            <input class="btn btn-primary" type="submit" value="Send">
+            <input class="form-control" type="text" name="chat-message" id="chat-message" placeholder="Сообщение" autocomplete="off">
+            <input class="btn btn-primary" type="submit" value="Отправить">
+            <input class="btn btn-success" type="button" id="start" value="Начать игру">
         </form>
     </div>
     <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
@@ -25,30 +28,40 @@
         $(document).ready(function() {
             let socket = new WebSocket("ws://84.201.185.53:889");
             socket.onopen = function() {
-                message('🤖', 'Соединение установлено');
+                printMessage('🤖', 'Соединение установлено');
+                let message = {
+                    username: getCookie('username'),
+                    phpsessid: getCookie('PHPSESSID'),
+                    code: 102
+                };
+                socket.send(JSON.stringify(message));
             }
 
             socket.onclose = function() {
-                message('🤖', 'Соединение закрыто');
+                printMessage('🤖', 'Соединение закрыто');
             }
 
             socket.onerror = function(error) {
-                message('🤖', 'Ошибка подключения');
+                printMessage('🤖', 'Ошибка подключения');
             }
 
             socket.onmessage = function(event) {
                 let data = JSON.parse(event.data),
-                    chat = $("#chat")[0];
-
-                message(data.user, data.message);
-                chat.scrollTop = chat.clientHeight;
+                    chat = $("#chat_messages")[0];
+                printMessage(data.user, data.message);
+                $("#chat_members").empty();
+                $.each(data.members, function(index, value){
+                    $("#chat_members").append(`<span><button class='btn-invite' id="${value.id}" onclick="pr(this)"></button>${value.username}</span>`);
+                });
+                chat.scrollTop = chat.scrollHeight;
             }
-            
+
             $("#messenger").on('submit', function() {
                 event.preventDefault();
                 let message = {
                     username: getCookie('username'),
-                    text: $("#chat-message").val()
+                    text: $("#chat-message").val(),
+                    code: 100
                 }
                 if (message.text !== '') {
                     $("#chat-user").attr('type', 'hidden');
@@ -56,15 +69,34 @@
                     $("#chat-message").val('');
                 }
             })
+
+            $("#start").on('click', function() {
+                let message = {
+                    username: getCookie('username'),
+                    text: 'Хочу играть!',
+                    code: 101
+                }
+                socket.send(JSON.stringify(message));
+            });
         });
 
-        function message(author, text) {
+        function pr(button) {
+            let message = {
+                    username: getCookie('username'),
+                    inviteto: button.attributes.id.value,
+                    phpsessid: getCookie('PHPSESSID'),
+                    code: 103
+                };
+            socket.send(JSON.stringify(message));
+        }
+
+        function printMessage(author, text) {
             let classes = 'message';
             if (author === '🤖') {
                 classes += ' robot';
             }
             if (author !== null || text !== null) {
-                $('#chat').append(`<span class="${classes}"><strong>${author}: </strong>${text}</span>`);
+                $('#chat_messages').append(`<span class="${classes}"><strong>${author}: </strong>${text}</span>`);
             }
         }
     </script>

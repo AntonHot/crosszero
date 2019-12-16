@@ -16,18 +16,79 @@ body {
 }
 
 .chat {
-    max-height: 50vh;
+    display: flex;
+    flex-direction: row;
+}
+
+.chat_messages {
+    height: 50vh;
+    min-height: 120px;
+    width: 66%;
     border: 1px solid #d2cfcf;
     padding: 10px;
     border-radius: 5px;
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
-    overflow-y: scroll;
+    overflow-y: auto;
+    flex-grow: 2;
+    margin-right: 5px;
+}
+
+.chat_members {
+    height: 50vh;
+    width: 33%;
+    min-height: 120px;
+    border: 1px solid #d2cfcf;
+    padding: 10px;
+    border-radius: 5px;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    flex-grow: 1;
+    overflow-y: auto;
+}
+
+.chat_members span {
+    font-size: 0.8rem;
+    white-space: nowrap;
+    overflow: hidden;
+    padding: 0px;
+    background: #ffffff;
+    position: relative;
+}
+
+.chat_members span:before {
+    content: '';
+    display: inline-block;
+    vertical-align: 6%;
+    margin-right: 4px;
+    border: 3px solid #13cc13;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+}
+
+button.btn-invite {
+    width: 10px;
+    height: 10px;
+    margin-right: 3px;
+}
+
+.chat_members span:after {
+    content: '';
+    position: absolute;
+    right: 0; top: 0;
+    width: 40px;
+    height: 100%;
+    background: -moz-linear-gradient(left, rgba(255,255,255, 0.0), #ffffff 100%);
+    background: -webkit-linear-gradient(left, rgba(255,255,255, 0.0), #ffffff 100%);
+    background: -o-linear-gradient(left, rgba(255,255,255, 0.0), #ffffff 100%);
+    background: -ms-linear-gradient(left, rgba(255,255,255, 0.0), #ffffff 100%);
+    background: linear-gradient(to right, rgba(255,255,255, 0.0), #ffffff 100%);
 }
 
 .message {
-    min-height: 24px;
     word-wrap: break-word;
     user-select: none;
 }

@@ -62,11 +62,18 @@ function send($message, $clientSockets) {
     return true;
 }
 
-function createChatMessage($type, $username, $textMessage) {
+function createChatMessage($username, $textMessage, $members) {
+    $tempMembers = [];
+    foreach ($members as $id => $info) {
+        $tempMembers[] = [
+            'id' => $info['id'],
+            'username' => $info['username']
+        ];
+    }
     $message = [
-        'type' => $type,
         'user' => $username,
-        'message' => $textMessage
+        'message' => $textMessage,
+        'members' => $tempMembers
     ];
     return seal(json_encode($message));
 }
