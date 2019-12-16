@@ -7,7 +7,6 @@ body {
 }
 
 .container {
-    height: 100vh;
     margin: auto;
     max-width: 414px;
     min-width: 260px;
@@ -17,16 +16,20 @@ body {
 }
 
 .chat {
+    max-height: 50vh;
     border: 1px solid #d2cfcf;
     padding: 10px;
     border-radius: 5px;
     display: flex;
     flex-direction: column;
+    flex-shrink: 0;
     overflow-y: scroll;
 }
 
 .message {
-    display: flex;
+    min-height: 24px;
+    word-wrap: break-word;
+    user-select: none;
 }
 
 .robot {

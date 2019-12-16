@@ -4,7 +4,6 @@ $app->get('/', function() {
     require_once "entry.php";
 });
 
-$app->get('/chat(/:username)', function($username) {
-    setcookie("username", $username);
+$app->get('/chat/', function() {
     require_once "chat.php";
 });
