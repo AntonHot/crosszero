@@ -7,6 +7,7 @@ require_once "app/settings.php";
 require_once "function.php";
 
 set_time_limit(0);
+ignore_user_abort(true);
 
 if (!extension_loaded('sockets')) {
     die("Extension 'WebSockets' not loaded" . PHP_EOL);
