@@ -3,7 +3,6 @@
 namespace Service;
 
 use Exception;
-use Service;
 
 /**
  * Сервер вебсокетов
@@ -33,9 +32,10 @@ class SocketServer {
     /** @var array */
     private $connections = [];
     
-    const DELAY = 100000; // microsec
-    const TEXT_MESSAGE = 100;
-    const GAME_MESSAGE = 101;
+    const DELAY = 100000 * 20; // microsec
+    const SYSTEM_MESSAGE = 100;
+    const TEXT_MESSAGE = 200;
+    const GAME_MESSAGE = 201;
     
     /**
      * Создает сокет-сервер
@@ -68,7 +68,7 @@ class SocketServer {
         $this->port = $port;
         $this->socket = socket_create($domain, $type, $protocol);
         
-        socket_bind($this->socket, $this->address, $this->port);
+        socket_bind($this->socket, '0.0.0.0', $this->port);
         socket_listen($this->socket, $backlog);
         if ($is_nonblock) {
             socket_set_nonblock($this->socket);
@@ -94,16 +94,14 @@ class SocketServer {
             $this->accept();
             
             // Processing inbox
-            $inboxMessages = $this->read();
-            foreach ($inboxMessages as $message) {
-                $this->handle($message);
-            }
+            $this->read();
             
             // Sending outbox
-            foreach ($this->connections as $connection) {
-                $this->send($connection);
+            if (!empty($this->connections)) {
+                $this->send();
             }
             
+            print_r($this->connections);
             $this->timeout();
         }
     }
@@ -120,7 +118,6 @@ class SocketServer {
     }
     
     /** @todo Как можно гарантировать, что клиент получил ответ и подключение установилось? */
-    
     private function handshake($header, &$resource) {
         $headers = [];
         $lines = preg_split("/\r\n/", $header);
@@ -148,17 +145,18 @@ class SocketServer {
     */
     public function read() {
         $messages = [];
-        foreach ($this->connections as $connection) {
+        foreach ($this->connections as &$connection) {
             $data = '';
             do {
                 if (socket_recv($connection->resource, $partData, 1024, 0) === 0) {
                     $this->removeConnection($connection);
-                    $messages[] = json_encode([
-                        'type' => 100,
+                    $message = (object) [
+                        'type' => 200,
                         'from' => '',
                         'to' => '',
                         'text' => $connection->name . ' is disconnected'
-                    ]);
+                    ];
+                    $messages[] = json_encode($message);
                     break;
                 }
                 $data .= $partData;
@@ -166,56 +164,43 @@ class SocketServer {
             
             if ($data) {
                 $socketMessage = $this->unseal($data);
-                $messages[] = json_decode($socketMessage);
+                $message = json_decode($socketMessage);
+                switch ($message->type) {
+                    case self::SYSTEM_MESSAGE:
+                        $connection->id = $message->phpsessid;
+                        $connection->name = $message->from;
+                        break;
+                    case self::TEXT_MESSAGE:
+                        $connection->messages[] = [
+                            'to' => $message->to,
+                            'text' => $message->text
+                        ];
+                        break;
+                    default:
+                        throw new Exception('Unknown type message');
+                        break;
+                }
             }
         }
+        return $messages;
     }
     
-        /**
-     * @param $message
-     *   // $message = [
-     *   //     'type' => 100,
-     *   //     'from' => phpsessid
-     *   //     'to' => '', # '' = all, 'phpsessid' = user
-     *   //     'text' => 'textMessage'
-     *   // ];
-     */
-    public function handle($message) {
-        $type = $message->type;
-        switch ($type) {
-            case self::TEXT_MESSAGE:
-                $from = $this->getConnectionById([$message->from]);
-                if (empty(trim($message->to)) || $message->to === 'all') {
+    public function send() {
+        foreach ($this->connections as $connection) {
+            foreach ($connection->messages as $message) {
+                if ($message['to'] === 'all') {
+                    $string = json_encode([
+                        'from' => $message['from'],
+                        'text' => $message['text']
+                    ]);
+                    $length = strlen($string);
                     foreach ($this->connections as $connection) {
-                        $connection->messages[] = [
-                            'from' => $from->name,
-                            'text' => $message->text
-                        ];
+                        @socket_write($connection->resource, $string, $length);
                     }
                 } else {
-                    $to = $this->getConnectionById([$message->to]);
-                    if (isset($to)) {
-                        $to->messages[] = [
-                            'from' => $from->name,
-                            'text' => $message->text
-                        ];
-                    }
+
                 }
-                break;
-            default:
-                throw new Exception('Unknown type message');
-                break;
-        }
-    }
-    
-    public function send($connection) {
-        foreach ($connection->messages as $message) {
-            $string = json_encode([
-                'from' => $message['from'],
-                'text' => $message['text']
-            ]);
-            $length = strlen($string);
-            @socket_write($connection->resource, $string, $length);
+            }
         }
     }
     
@@ -238,7 +223,7 @@ class SocketServer {
     
     private function removeConnection($connection) {
         $key = array_search($connection, $this->connections, true);
-        if ($key) {
+        if (isset($this->connections[$key])) {
             unset($this->connections[$key]);
         }
     }

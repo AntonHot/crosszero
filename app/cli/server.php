@@ -2,9 +2,12 @@
 
 // Запуск демона: sudo php -f /var/www/html/app/cli/server.php &
 
-use Service\{SocketServer, Chat};
+use Service\SocketServer;
 
-require_once "../app/settings.php";
+define('ROOT', dirname(dirname(__FILE__)));
+require_once(ROOT . '/settings.php');
+require_once(ROOT . '../../vendor/autoload.php');
+
 set_time_limit(0);
 ignore_user_abort(true);
 
