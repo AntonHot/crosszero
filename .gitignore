@@ -1,3 +1,4 @@
 /.vscode
 /vendor
 settings.php
+.DS_Store

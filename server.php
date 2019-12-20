@@ -6,6 +6,13 @@
 require_once "app/settings.php";
 require_once "function.php";
 
+define('TEXT_MESSAGE', 100);
+define('START_GAME', 101);
+define('ADD_MEMBER', 102);
+define('INVITE_MESSAGE', 103);
+
+define('SERVER_USERNAME', '🤖');
+
 set_time_limit(0);
 ignore_user_abort(true);
 
@@ -20,6 +27,7 @@ socket_listen($socket, 5);
 socket_set_nonblock($socket);
 
 $webSockets = [];
+$members = [];
 
 while(true) {
     $newWebSocket = socket_accept($socket);
@@ -28,24 +36,63 @@ while(true) {
         $header = socket_read($newWebSocket, 1024);
         sendHeaders($header, $newWebSocket, ADDR, PORT);
         $webSockets[] = $newWebSocket;
-        socket_getpeername($newWebSocket, $ipAddress);
-        $connectionACK = createChatMessage(null, '🤖', 'Вошел новый юзер');
-        send($connectionACK, $webSockets);
     }
-    foreach ($webSockets as $webSocket) {
+    foreach ($webSockets as $key => $webSocket) {
         $socketData = '';
-        while (socket_recv($webSocket, $partData, 1024, 0)) {
+
+        do {
+            if (socket_recv($webSocket, $partData, 1024, 0) === 0) {
+                unset($members[$webSocket]);
+                unset($webSockets[$key]);
+                $chatMessage = createChatMessage(SERVER_USERNAME, 'Кто-то покинул чат', $members);
+                send($chatMessage, $webSockets);
+                break;
+            }
             $socketData .= $partData;
-        }
+        } while ($partData);
+
         if ($socketData) {
             $socketMessage = unseal($socketData);
             echo $socketMessage . PHP_EOL;
             $messageObj = json_decode($socketMessage);
-            $chatMessage = createChatMessage(null, $messageObj->username, $messageObj->text);
-            send($chatMessage, $webSockets);
+            print_r($messageObj);
+            $codeMessage = $messageObj->code;
+            switch ($codeMessage) {
+                case TEXT_MESSAGE:
+                    $chatMessage = createChatMessage($messageObj->username, $messageObj->text, $members);
+                    send($chatMessage, $webSockets);
+                    break;
+                case START_GAME:
+                    $chatMessage = createChatMessage(SERVER_USERNAME, $messageObj->username . ' ожидает игрока...', $members);
+                    send($chatMessage, $webSockets);
+                    break;
+                case ADD_MEMBER:
+                    $members[$webSocket] = [
+                        'id' => $messageObj->phpsessid,
+                        'username' => $messageObj->username
+                    ];
+                    $chatMessage = createChatMessage(SERVER_USERNAME, 'Вошел новый участник ' . $messageObj->username, $members);
+                    send($chatMessage, $webSockets);
+                    break;
+                case INVITE_MESSAGE:
+                    $invites[] = [
+                        'user' => $messageObj->username,
+                        'inviteto' => $messageObj->inviteto
+                    ];
+                    $members[$webSocket] = [
+                        'id' => $messageObj->phpsessid,
+                        'username' => $messageObj->username
+                    ];
+                    $chatMessage = createChatMessage(SERVER_USERNAME, 'Вошел новый участник ' . $messageObj->username, $members);
+                    send($chatMessage, $webSockets);
+                    break;
+                default:
+                    // code...
+                    break;
+            }
         }
     }
-    usleep(100000);
+    usleep(100000 * 50);
 }
 
 socket_close($socket);
