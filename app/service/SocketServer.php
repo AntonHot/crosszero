@@ -3,22 +3,39 @@
 namespace Service;
 
 use Exception;
+use Service;
 
 /**
- * Обеспечивает соединение с клиентами, получение и отправку сообщений
- * @method void setOption()
- * @method boolean accept()
- * @method string read()
- * @method boolean send()
+ * Сервер вебсокетов
+ * 
+ * @method setOption()      Настройка сервера
+ * @method accept()         Принимает новое соединение
+ * @method read()           Получает сообщение из сокета
+ * @method send()           Отправляет массив сообщений
+ * @method timeout()        Держит паузу
+ * 
+ * @todo Добавить синглтон для сервера
  */
 class SocketServer {
     
+    /** @var string */
     private $address;
+    
+    /** @var integer */
     private $port;
+    
+    /** @var resource */
     private $socket;
+    
+    /** @var boolean */
+    private $isRun = false;
+    
+    /** @var array */
     private $connections = [];
     
     const DELAY = 100000; // microsec
+    const TEXT_MESSAGE = 100;
+    const GAME_MESSAGE = 101;
     
     /**
      * Создает сокет-сервер
@@ -70,22 +87,41 @@ class SocketServer {
         socket_set_option($this->socket, $level, $optname, $optval);
     }
     
+    public function go() {
+        $this->isRun = true;
+        while($this->isRun) {
+            // New connection
+            $this->accept();
+            
+            // Processing inbox
+            $inboxMessages = $this->read();
+            foreach ($inboxMessages as $message) {
+                $this->handle($message);
+            }
+            
+            // Sending outbox
+            foreach ($this->connections as $connection) {
+                $this->send($connection);
+            }
+            
+            $this->timeout();
+        }
+    }
+    
     public function accept() {
-        $newConnection = socket_accept($this->socket);
-        if ($newConnection) {
-            socket_set_nonblock($newConnection);
-            $header = socket_read($newConnection, 1024);
-            $this->handshake($header, $newConnection);
-            $this->add($newConnection);
-            return true;
-        } else {
-            return false;
+        $resource = socket_accept($this->socket);
+        if ($resource) {
+            socket_set_nonblock($resource);
+            $connection = new Connection($resource);
+            $header = socket_read($connection->resource, 1024);
+            $this->handshake($header, $connection->resource);
+            $this->addConnection($connection);
         }
     }
     
     /** @todo Как можно гарантировать, что клиент получил ответ и подключение установилось? */
     
-    private function handshake($header, $connection) {
+    private function handshake($header, &$resource) {
         $headers = [];
         $lines = preg_split("/\r\n/", $header);
         foreach ($lines as $line) {
@@ -101,21 +137,33 @@ class SocketServer {
             "WebSocket-Origin: $this->address\r\n" .
             "WebSocket-Location: ws://$this->address:$this->port/websocket/server.php\r\n" .
             "Sec-WebSocket-Accept: $sKey\r\n\r\n";
-        socket_write($connection, $strHeaders, strlen($strHeaders));
+        socket_write($resource, $strHeaders, strlen($strHeaders));
     }
     
+    /**
+     * 1. Получает все данные из соединений
+     * 2. Раскодирует
+     * 3. Сохраняет все в один массив
+     * @return array
+    */
     public function read() {
         $messages = [];
         foreach ($this->connections as $connection) {
             $data = '';
             do {
-                if (socket_recv($connection, $partData, 1024, 0) === 0) {
-                    $this->remove($connection);
-                    $messages[] = 'User is disconnected. Resource: ' . $connection; // TODO сделать системное сообщение
+                if (socket_recv($connection->resource, $partData, 1024, 0) === 0) {
+                    $this->removeConnection($connection);
+                    $messages[] = json_encode([
+                        'type' => 100,
+                        'from' => '',
+                        'to' => '',
+                        'text' => $connection->name . ' is disconnected'
+                    ]);
                     break;
                 }
                 $data .= $partData;
             } while ($partData);
+            
             if ($data) {
                 $socketMessage = $this->unseal($data);
                 $messages[] = json_decode($socketMessage);
@@ -123,31 +171,75 @@ class SocketServer {
         }
     }
     
-    function send($messages) {
-        foreach ($messages as $message) {
-            $messageLength = strlen($message);
-            foreach ($this->connections as $connection) {
-                @socket_write($connection, $message, $messageLength);
-            }
+        /**
+     * @param $message
+     *   // $message = [
+     *   //     'type' => 100,
+     *   //     'from' => phpsessid
+     *   //     'to' => '', # '' = all, 'phpsessid' = user
+     *   //     'text' => 'textMessage'
+     *   // ];
+     */
+    public function handle($message) {
+        $type = $message->type;
+        switch ($type) {
+            case self::TEXT_MESSAGE:
+                $from = $this->getConnectionById([$message->from]);
+                if (empty(trim($message->to)) || $message->to === 'all') {
+                    foreach ($this->connections as $connection) {
+                        $connection->messages[] = [
+                            'from' => $from->name,
+                            'text' => $message->text
+                        ];
+                    }
+                } else {
+                    $to = $this->getConnectionById([$message->to]);
+                    if (isset($to)) {
+                        $to->messages[] = [
+                            'from' => $from->name,
+                            'text' => $message->text
+                        ];
+                    }
+                }
+                break;
+            default:
+                throw new Exception('Unknown type message');
+                break;
         }
-        return true;
+    }
+    
+    public function send($connection) {
+        foreach ($connection->messages as $message) {
+            $string = json_encode([
+                'from' => $message['from'],
+                'text' => $message['text']
+            ]);
+            $length = strlen($string);
+            @socket_write($connection->resource, $string, $length);
+        }
     }
     
     public function timeout() {
         usleep(self::DELAY);
     }
     
-    private function add($connection) {
+    private function addConnection($connection) {
         $this->connections[] = $connection;
     }
     
-    private function remove($connection) {
-        $key = array_search($connection, $this->connections);
+    public function getConnectionById($id) {
+        foreach ($this->connections as $connection) {
+            if ($id === $connection->id) {
+                return $connection;
+            }
+        }
+        return false;
+    }
+    
+    private function removeConnection($connection) {
+        $key = array_search($connection, $this->connections, true);
         if ($key) {
             unset($this->connections[$key]);
-            return true;
-        } else {
-            return false;
         }
     }
     
@@ -185,63 +277,3 @@ class SocketServer {
         return $socketStr;
     }
 }
-
-/*
-
-foreach ($webSockets as $key => $webSocket) {
-    $socketData = '';
-
-    do {
-        if (socket_recv($webSocket, $partData, 1024, 0) === 0) {
-            unset($members[$webSocket]);
-            unset($webSockets[$key]);
-            $chatMessage = createChatMessage(SERVER_USERNAME, 'Кто-то покинул чат', $members);
-            send($chatMessage, $webSockets);
-            break;
-        }
-        $socketData .= $partData;
-    } while ($partData);
-
-    if ($socketData) {
-        $socketMessage = unseal($socketData);
-        echo $socketMessage . PHP_EOL;
-        $messageObj = json_decode($socketMessage);
-        print_r($messageObj);
-        $codeMessage = $messageObj->code;
-        switch ($codeMessage) {
-            case TEXT_MESSAGE:
-                $chatMessage = createChatMessage($messageObj->username, $messageObj->text, $members);
-                send($chatMessage, $webSockets);
-                break;
-            case START_GAME:
-                $chatMessage = createChatMessage(SERVER_USERNAME, $messageObj->username . ' ожидает игрока...', $members);
-                send($chatMessage, $webSockets);
-                break;
-            case ADD_MEMBER:
-                $members[$webSocket] = [
-                    'id' => $messageObj->phpsessid,
-                    'username' => $messageObj->username
-                ];
-                $chatMessage = createChatMessage(SERVER_USERNAME, 'Вошел новый участник ' . $messageObj->username, $members);
-                send($chatMessage, $webSockets);
-                break;
-            case INVITE_MESSAGE:
-                $invites[] = [
-                    'user' => $messageObj->username,
-                    'inviteto' => $messageObj->inviteto
-                ];
-                $members[$webSocket] = [
-                    'id' => $messageObj->phpsessid,
-                    'username' => $messageObj->username
-                ];
-                $chatMessage = createChatMessage(SERVER_USERNAME, 'Вошел новый участник ' . $messageObj->username, $members);
-                send($chatMessage, $webSockets);
-                break;
-            default:
-                // code...
-                break;
-        }
-    }
-}
-
-*/
