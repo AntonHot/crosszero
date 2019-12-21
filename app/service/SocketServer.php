@@ -32,7 +32,7 @@ class SocketServer {
     /** @var array */
     private $connections = [];
     
-    const DELAY = 100000 * 20; // microsec
+    const DELAY = 100000; // microsec
     const SYSTEM_MESSAGE = 100;
     const TEXT_MESSAGE = 200;
     const GAME_MESSAGE = 201;
@@ -101,7 +101,6 @@ class SocketServer {
                 $this->send();
             }
             
-            print_r($this->connections);
             $this->timeout();
         }
     }
@@ -144,24 +143,16 @@ class SocketServer {
      * @return array
     */
     public function read() {
-        $messages = [];
         foreach ($this->connections as &$connection) {
             $data = '';
             do {
                 if (socket_recv($connection->resource, $partData, 1024, 0) === 0) {
                     $this->removeConnection($connection);
-                    $message = (object) [
-                        'type' => 200,
-                        'from' => '',
-                        'to' => '',
-                        'text' => $connection->name . ' is disconnected'
-                    ];
-                    $messages[] = json_encode($message);
                     break;
                 }
                 $data .= $partData;
             } while ($partData);
-            
+
             if ($data) {
                 $socketMessage = $this->unseal($data);
                 $message = json_decode($socketMessage);
@@ -182,20 +173,20 @@ class SocketServer {
                 }
             }
         }
-        return $messages;
     }
     
     public function send() {
         foreach ($this->connections as $connection) {
-            foreach ($connection->messages as $message) {
+            foreach ($connection->messages as $key => $message) {
                 if ($message['to'] === 'all') {
-                    $string = json_encode([
-                        'from' => $message['from'],
+                    $string = $this->seal(json_encode([
+                        'from' => $connection->name,
                         'text' => $message['text']
-                    ]);
+                    ]));
                     $length = strlen($string);
-                    foreach ($this->connections as $connection) {
-                        @socket_write($connection->resource, $string, $length);
+                    unset($connection->messages[$key]);
+                    foreach ($this->connections as $connect) {
+                        @socket_write($connect->resource, $string, $length);
                     }
                 } else {
 
@@ -210,15 +201,6 @@ class SocketServer {
     
     private function addConnection($connection) {
         $this->connections[] = $connection;
-    }
-    
-    public function getConnectionById($id) {
-        foreach ($this->connections as $connection) {
-            if ($id === $connection->id) {
-                return $connection;
-            }
-        }
-        return false;
     }
     
     private function removeConnection($connection) {

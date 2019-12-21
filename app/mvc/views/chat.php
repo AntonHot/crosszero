@@ -48,10 +48,10 @@
             socket.onmessage = function(event) {
                 let data = JSON.parse(event.data),
                     chat = $("#chat_messages")[0];
-                printMessage(data.user, data.message);
+                printMessage(data.from, data.text);
                 $("#chat_members").empty();
                 $.each(data.members, function(index, value){
-                    $("#chat_members").append(`<span><button class='btn-invite' id="${value.id}" onclick="pr(this)"></button>${value.username}</span>`);
+                    $("#chat_members").append(`<span><button class='btn-invite' id="${value.id}" onclick="pr(this)"></button>${value.from}</span>`);
                 });
                 chat.scrollTop = chat.scrollHeight;
             }
