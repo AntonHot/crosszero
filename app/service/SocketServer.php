@@ -6,14 +6,6 @@ use Exception;
 
 /**
  * Сервер вебсокетов
- * 
- * @method setOption()      Настройка сервера
- * @method accept()         Принимает новое соединение
- * @method read()           Получает сообщение из сокета
- * @method send()           Отправляет массив сообщений
- * @method timeout()        Держит паузу
- * 
- * @todo Добавить синглтон для сервера
  */
 class SocketServer {
     
@@ -31,11 +23,18 @@ class SocketServer {
     
     /** @var array */
     private $connections = [];
+
+    /** @var Outbox */
+    private $outbox;
     
     const DELAY = 100000; // microsec
-    const SYSTEM_MESSAGE = 100;
+
+    const SERVICE_MESSAGE = 100;
+    const STATE_MEMBERS = 101;
     const TEXT_MESSAGE = 200;
-    const GAME_MESSAGE = 201;
+    const INVITE_GAME = 300;
+
+    const ALL = 'all';
     
     /**
      * Создает сокет-сервер
@@ -67,6 +66,7 @@ class SocketServer {
         $this->address = $address;
         $this->port = $port;
         $this->socket = socket_create($domain, $type, $protocol);
+        $this->outbox = new Outbox();
         
         socket_bind($this->socket, '0.0.0.0', $this->port);
         socket_listen($this->socket, $backlog);
@@ -90,17 +90,9 @@ class SocketServer {
     public function go() {
         $this->isRun = true;
         while($this->isRun) {
-            // New connection
             $this->accept();
-            
-            // Processing inbox
             $this->read();
-            
-            // Sending outbox
-            if (!empty($this->connections)) {
-                $this->send();
-            }
-            
+            $this->send();
             $this->timeout();
         }
     }
@@ -137,9 +129,7 @@ class SocketServer {
     }
     
     /**
-     * 1. Получает все данные из соединений
-     * 2. Раскодирует
-     * 3. Сохраняет все в один массив
+     * Получает все данные из соединений
      * @return array
     */
     public function read() {
@@ -148,51 +138,70 @@ class SocketServer {
             do {
                 if (socket_recv($connection->resource, $partData, 1024, 0) === 0) {
                     $this->removeConnection($connection);
+                    $this->sendMembers();
                     break;
                 }
                 $data .= $partData;
             } while ($partData);
 
             if ($data) {
-                $socketMessage = $this->unseal($data);
-                $message = json_decode($socketMessage);
-                switch ($message->type) {
-                    case self::SYSTEM_MESSAGE:
-                        $connection->id = $message->phpsessid;
-                        $connection->name = $message->from;
-                        break;
-                    case self::TEXT_MESSAGE:
-                        $connection->messages[] = [
-                            'to' => $message->to,
-                            'text' => $message->text
-                        ];
-                        break;
-                    default:
-                        throw new Exception('Unknown type message');
-                        break;
+                $message = json_decode($this->unseal($data));
+                if (!empty($message)) {
+                    switch ($message->type) {
+                        case self::SERVICE_MESSAGE:
+                            $connection->id = $message->phpsessid;
+                            $connection->name = $message->sender;
+                            $this->sendMembers();
+                            break;
+                        case self::TEXT_MESSAGE:
+                            if ($message->receivers === self::ALL || $message->receivers === '') {
+                                $receivers = $this->connections;
+                            } else {
+                                $receivers = [$this->getConnectionById($message->receivers)];
+                            }
+                            $params = [
+                                'type' => self::TEXT_MESSAGE,
+                                'sender' => $connection,
+                                'receivers' => $receivers,
+                                'text' => $message->text
+                            ];
+                            $this->addMessage($params);
+                            break;
+                        case self::INVITE_GAME:
+                            $receivers = [$this->getConnectionById($message->receivers)];
+                            $params = [
+                                'type' => self::INVITE_GAME,
+                                'sender' => $connection,
+                                'receivers' => $receivers
+                            ];
+                            $this->addMessage($params);
+                            break;
+                    }
                 }
             }
         }
     }
-    
-    public function send() {
-        foreach ($this->connections as $connection) {
-            foreach ($connection->messages as $key => $message) {
-                if ($message['to'] === 'all') {
-                    $string = $this->seal(json_encode([
-                        'from' => $connection->name,
-                        'text' => $message['text']
-                    ]));
-                    $length = strlen($string);
-                    unset($connection->messages[$key]);
-                    foreach ($this->connections as $connect) {
-                        @socket_write($connect->resource, $string, $length);
-                    }
-                } else {
 
+    public function send() {
+        if (!empty($this->outbox->messages)) {
+            foreach ($this->outbox->messages as $key => $message) {
+                $content = $message->getContent();
+                $content = $this->seal(json_encode($content));
+                foreach ($message->receivers as $receiver) {
+                    @socket_write($receiver->resource, $content, strlen($content));
                 }
+                unset($this->outbox->messages[$key]);
             }
         }
+    }
+
+    public function sendMembers() {
+        $params = [
+            'type' => self::STATE_MEMBERS,
+            'receivers' => $this->connections,
+            'members' => $this->getMembers()
+        ];
+        $this->addMessage($params);
     }
     
     public function timeout() {
@@ -208,6 +217,15 @@ class SocketServer {
         if (isset($this->connections[$key])) {
             unset($this->connections[$key]);
         }
+    }
+
+    private function getConnectionById($id) {
+        foreach ($this->connections as $connection) {
+            if ($id === $connection->id) {
+                return $connection;
+            }
+        }
+        return false;
     }
     
     private function seal($data) {
@@ -242,5 +260,16 @@ class SocketServer {
             $socketStr .= $content[$i] ^ $mask[$i%4];
         }
         return $socketStr;
+    }
+
+    public function addMessage($params) {
+        $this->outbox->messages[] = new Message($params);
+    }
+
+    public function getMembers() {
+        foreach ($this->connections as $connection) {
+            $members[] = $connection->getMember();
+        }
+        return $members;
     }
 }

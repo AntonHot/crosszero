@@ -12,7 +12,7 @@ body {
     min-width: 260px;
     padding: 15px;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
 }
 
 .chat {
@@ -32,14 +32,13 @@ body {
     flex-shrink: 0;
     overflow-y: auto;
     flex-grow: 2;
-    margin-right: 5px;
 }
 
 .chat_members {
     height: 50vh;
     width: 33%;
     min-height: 120px;
-    border: 1px solid #d2cfcf;
+    /* border: 1px solid #d2cfcf; */
     padding: 10px;
     border-radius: 5px;
     display: flex;
@@ -56,23 +55,24 @@ body {
     padding: 0px;
     background: #ffffff;
     position: relative;
+    margin-bottom: 2px;
 }
 
-.chat_members span:before {
-    content: '';
+button.button-invite {
+    color: #fff;
+    background-color: #28a745;
+    border-color: #28a745;
+    border-radius: 4px;
+}
+
+button.button-invite:active,
+button.button-invite:focus {
+    outline: none;
+}
+
+.member-name {
     display: inline-block;
-    vertical-align: 6%;
-    margin-right: 4px;
-    border: 3px solid #13cc13;
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-}
-
-button.btn-invite {
-    width: 10px;
-    height: 10px;
-    margin-right: 3px;
+    margin-left: 3px;
 }
 
 .chat_members span:after {

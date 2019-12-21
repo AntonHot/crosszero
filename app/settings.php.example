@@ -1,4 +1,4 @@
 <?php
 
-define('ADDR', ''); // ip-address
+define('ADDR', 'X.X.X.X');
 define('PORT', 8090);
