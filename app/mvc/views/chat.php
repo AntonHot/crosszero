@@ -114,7 +114,7 @@
                 if (value.id !== myid && value.id !== null) {
                     $("#chat_members").append(`<span><button class="button-invite" memberid="${value.id}">invite</button><div class="member-name">${value.name}</div></span>`);
                 } else {
-                    $("#chat_members").append(`<span><div class="member-name"><strong>${myname}</strong></div></span>`);
+                    $("#chat_members").prepend(`<span><div class="member-name"><strong>${myname}</strong></div></span>`);
                 }
             });
         }
