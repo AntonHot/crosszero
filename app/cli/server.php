@@ -10,7 +10,7 @@ require_once(ROOT . '../../vendor/autoload.php');
 
 set_time_limit(0);
 ignore_user_abort(true);
-const MAX_CONNECTION = 10;
+const MAX_CONNECTION = 30;
 
 try {
     $server = new SocketServer(ADDR, PORT, MAX_CONNECTION);

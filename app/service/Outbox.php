@@ -10,5 +10,4 @@ class Outbox {
     public function __construct() {
         $this->textMessages = [];
     }
-
 }

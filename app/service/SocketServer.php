@@ -8,34 +8,42 @@ use Exception;
  * Сервер вебсокетов
  */
 class SocketServer {
-    
+
     /** @var string */
     private $address;
-    
+
     /** @var integer */
     private $port;
-    
+
     /** @var resource */
     private $socket;
-    
+
     /** @var boolean */
     private $isRun = false;
-    
+
     /** @var array */
     private $connections = [];
 
     /** @var Outbox */
     private $outbox;
-    
+
+    /** @var GameQueue */
+    public $gameQueue;
+
     const DELAY = 100000; // microsec
 
     const SERVICE_MESSAGE = 100;
     const STATE_MEMBERS = 101;
     const TEXT_MESSAGE = 200;
     const INVITE_GAME = 300;
+    const INVITE_GAME_ACCEPT = 301;
+    const INVITE_GAME_DECLINE = 300;
+    const NEW_GAME = 400;
+    const GAME_MOVE = 401;
+    const GAME_OVER = 402;
 
     const ALL = 'all';
-    
+
     /**
      * Создает сокет-сервер
      * @param string $address
@@ -67,6 +75,7 @@ class SocketServer {
         $this->port = $port;
         $this->socket = socket_create($domain, $type, $protocol);
         $this->outbox = new Outbox();
+        $this->gameQueue = new GameQueue();
         
         socket_bind($this->socket, '0.0.0.0', $this->port);
         socket_listen($this->socket, $backlog);
@@ -76,7 +85,7 @@ class SocketServer {
         
         return $this->socket;
     }
-    
+
     /**
      * Устанавливает опции серверу
      * @param integer $level
@@ -86,7 +95,7 @@ class SocketServer {
     public function setOption($level, $optname, $optval) {
         socket_set_option($this->socket, $level, $optname, $optval);
     }
-    
+
     public function go() {
         $this->isRun = true;
         while($this->isRun) {
@@ -96,7 +105,7 @@ class SocketServer {
             $this->timeout();
         }
     }
-    
+
     public function accept() {
         $resource = socket_accept($this->socket);
         if ($resource) {
@@ -107,7 +116,7 @@ class SocketServer {
             $this->addConnection($connection);
         }
     }
-    
+
     /** @todo Как можно гарантировать, что клиент получил ответ и подключение установилось? */
     private function handshake($header, &$resource) {
         $headers = [];
@@ -127,7 +136,7 @@ class SocketServer {
             "Sec-WebSocket-Accept: $sKey\r\n\r\n";
         socket_write($resource, $strHeaders, strlen($strHeaders));
     }
-    
+
     /**
      * Получает все данные из соединений
      * @return array
@@ -146,6 +155,7 @@ class SocketServer {
 
             if ($data) {
                 $message = json_decode($this->unseal($data));
+                // print_r($message);
                 if (!empty($message)) {
                     switch ($message->type) {
                         case self::SERVICE_MESSAGE:
@@ -168,11 +178,47 @@ class SocketServer {
                             $this->addMessage($params);
                             break;
                         case self::INVITE_GAME:
+                            $game = new Game($connection);
+                            $this->gameQueue->addGame($game);
                             $receivers = [$this->getConnectionById($message->receivers)];
                             $params = [
                                 'type' => self::INVITE_GAME,
+                                'game' => $game,
                                 'sender' => $connection,
                                 'receivers' => $receivers
+                            ];
+                            $this->addMessage($params);
+                            break;
+                        case self::INVITE_GAME_ACCEPT:
+                            $game = $this->gameQueue->searchGameById($message->gameid);
+                            $game->players[] = $connection;
+                            $game->startCompletedChallenge();
+                            if ($game->status === Game::PROCESS) {
+                                $params = [
+                                    'type' => self::NEW_GAME,
+                                    'game' => $game,
+                                    'receivers' => $game->players
+                                ];
+                                $this->addMessage($params);
+                            }
+                            break;
+                        case self::GAME_MOVE:
+                            $game = $this->gameQueue->searchGameById($message->gameid);
+                            $game->changeStateGame($message->state);
+                            $params = [
+                                'type' => self::GAME_MOVE,
+                                'game' => $game,
+                                'receivers' => $game->players
+                            ];
+                            $this->addMessage($params);
+                            break;
+                        case self::GAME_OVER:
+                            $game = $this->gameQueue->searchGameById($message->gameid);
+                            $game->changeStateGame($message->state);
+                            $params = [
+                                'type' => self::GAME_OVER,
+                                'game' => $game,
+                                'receivers' => $game->players
                             ];
                             $this->addMessage($params);
                             break;
@@ -203,15 +249,15 @@ class SocketServer {
         ];
         $this->addMessage($params);
     }
-    
+
     public function timeout() {
         usleep(self::DELAY);
     }
-    
+
     private function addConnection($connection) {
         $this->connections[] = $connection;
     }
-    
+
     private function removeConnection($connection) {
         $key = array_search($connection, $this->connections, true);
         if (isset($this->connections[$key])) {
@@ -227,7 +273,7 @@ class SocketServer {
         }
         return false;
     }
-    
+
     private function seal($data) {
         $b1 = 0x81;
         $length = strlen($data);
@@ -241,7 +287,7 @@ class SocketServer {
         }
         return $header . $data;
     }
-    
+
     private function unseal($data) {
         $length = ord($data[1]) & 127;
         if ($length == 126) {

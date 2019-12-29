@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <div class="container">
+    <div class="container-chat">
         <form class="messenger" id="form-entry" action="chat">
             <input class="form-control" type="text" id="username" placeholder="Ваше имя" autocomplete="off" required>
             <input class="btn btn-primary" type="submit" value="Войти">

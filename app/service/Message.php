@@ -7,6 +7,7 @@ class Message {
     public $type;
     public $sender;
     public $receivers;
+    public $game;
     public $text;
     public $members;
 
@@ -19,14 +20,25 @@ class Message {
     }
 
     public function getContent() {
-        return [
-            'type' => $this->type,
-            'sender' => [
+        $content = [];
+        $content['type'] = $this->type;
+        $content['sender'] = [
                 'id' => isset($this->sender) ? $this->sender->id : '',
                 'name' => isset($this->sender) ? $this->sender->name : ''
-            ],
-            'text' => $this->text,
-            'members' => $this->members
         ];
+        $content['text'] = $this->text;
+        $content['members'] = $this->members;
+        if (isset($this->game)) {
+            $content['game']['id'] = $this->game->id;
+            if ($this->game->status === Game::PROCESS) {
+                $content['game'] = [
+                    'id' => $this->game->id,
+                    'state' => $this->game->state,
+                    'players' => $this->game->getPlayers(),
+                    'whoseMove' => $this->game->getActivePlayer()
+                ];
+            }
+        }
+        return $content;
     }
 }

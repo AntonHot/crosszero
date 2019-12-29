@@ -6,13 +6,11 @@ body {
     flex-direction: column;
 }
 
-.container {
+.container-chat {
     margin: auto;
-    max-width: 414px;
-    min-width: 260px;
     padding: 15px;
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
 }
 
 .chat {
@@ -35,10 +33,7 @@ body {
 }
 
 .chat_members {
-    height: 50vh;
-    width: 33%;
     min-height: 120px;
-    /* border: 1px solid #d2cfcf; */
     padding: 10px;
     border-radius: 5px;
     display: flex;
@@ -58,16 +53,41 @@ body {
     margin-bottom: 2px;
 }
 
-button.button-invite {
-    color: #fff;
-    background-color: #28a745;
-    border-color: #28a745;
+.small-btn {
+    margin: 0;
+    padding: 0;
     border-radius: 4px;
 }
 
-button.button-invite:active,
-button.button-invite:focus {
+.small-btn:active,
+.small-btn:focus {
     outline: none;
+}
+
+.invite {
+    padding-left: 3px;
+    padding-right: 3px;
+    color: #fff;
+    background-color: #28a745;
+    border-color: #28a745;
+}
+
+.accept,
+.decline {
+    content: "";
+    width: 18px;
+    height: 18px;
+    margin-left: 3px;
+}
+
+.accept {
+    background-color: #28a745;
+    border-color: #28a745;
+}
+
+.decline {
+    background-color: #df1732;
+    border-color: #df1732;
 }
 
 .member-name {
@@ -115,4 +135,22 @@ button.button-invite:focus {
 
 .messenger input {
     margin-bottom: 5px;
+}
+
+.game-field {
+    margin: auto;
+}
+
+.game-field__cell {
+    content: "";
+    height: 50px;
+    width: 50px;
+    text-align: center;
+    border: 1px solid gray;
+}
+
+.game-status {
+    margin-top: 10px;
+    margin-bottom: 0;
+    text-align: center;
 }
